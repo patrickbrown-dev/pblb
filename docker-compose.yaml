@@ -1,0 +1,17 @@
+version: '3'
+services:
+  nginx_a:
+    image: nginx:latest
+    container_name: nginx_a
+    ports:
+      - 8001:80
+  nginx_b:
+    image: nginx:latest
+    container_name: nginx_b
+    ports:
+      - 8002:80
+  nginx_c:
+    image: nginx:latest
+    container_name: nginx_c
+    ports:
+      - 8003:80
