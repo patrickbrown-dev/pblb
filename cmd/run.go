@@ -30,7 +30,7 @@ func init() {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	var nodes []lib.Node
+	var nodes []*lib.Node
 	err := viper.UnmarshalKey("nodes", &nodes)
 	if err != nil {
 		log.Fatalf("unable to decode into struct, %v", err)

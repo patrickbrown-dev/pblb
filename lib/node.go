@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 )
 
@@ -12,6 +13,23 @@ type Node struct {
 	Address string `mapstructure:"address"`
 	Port    string `mapstructure:"port"`
 	Health  string `mapstructure:"health"` // TODO
+	healthy bool
+}
+
+func (n *Node) SetHealthy() {
+	n.healthy = true
+}
+
+func (n *Node) SetUnhealthy() {
+	n.healthy = false
+}
+
+func (n *Node) IsHealthy() bool {
+	return n.healthy
+}
+
+func (n *Node) IsUnhealthy() bool {
+	return !n.IsHealthy()
 }
 
 // Handler forwards request to node. Based on https://stackoverflow.com/a/34725635
@@ -21,6 +39,7 @@ func (n *Node) Handler(w http.ResponseWriter, req *http.Request) {
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("%d %s", http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -44,7 +63,24 @@ func (n *Node) Handler(w http.ResponseWriter, req *http.Request) {
 	resp, err := client.Do(proxyReq)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("%d %s", http.StatusBadGateway, err.Error())
+		n.SetUnhealthy()
 		return
 	}
 	defer resp.Body.Close()
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		log.Printf("%d %s", http.StatusBadGateway, err.Error())
+		n.SetUnhealthy()
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		w.WriteHeader(resp.StatusCode)
+	}
+
+	w.Write(b)
+	n.SetHealthy()
 }

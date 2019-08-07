@@ -13,7 +13,6 @@ require (
 	github.com/google/pprof v0.0.0-20190723021845-34ac40c74b70 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.9.5 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
-	github.com/kineticdial/pbdb v0.0.0-20190515205504-bb14f0f661f7 // indirect
 	github.com/kisielk/errcheck v1.2.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pty v1.1.8 // indirect
