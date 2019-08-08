@@ -6,10 +6,10 @@ port: 2839
 nodes:
   - address: "127.0.0.1"
     port: "8001"
-    health: "/health"
+    health: "/"
   - address: "127.0.0.1"
     port: "8002"
-    health: "/health"
+    health: "/"
   - address: "127.0.0.1"
     port: "8003"
-    health: "/health"
+    health: "/"

@@ -16,31 +16,56 @@ type Node struct {
 	healthy bool
 }
 
+// SetHealthy sets the node to "healthy", meaning it is perceived to be able
+// to successfully process requests.
 func (n *Node) SetHealthy() {
 	n.healthy = true
 }
 
+// SetUnhealthy sets the node to "unhealthy", meaning it is not perceived to be
+// able to successfully process requests.
 func (n *Node) SetUnhealthy() {
 	n.healthy = false
 }
 
+// IsHealthy returns true if healthy.
 func (n *Node) IsHealthy() bool {
 	return n.healthy
 }
 
+// IsUnhealthy returns true if unhealthy.
 func (n *Node) IsUnhealthy() bool {
 	return !n.IsHealthy()
 }
 
+// CheckHealth manually performs a health check at the node's health url. It
+// returns true if healthy, false if unhealhty.
+func (n *Node) CheckHealth() bool {
+	url := fmt.Sprintf("http://%s:%s%s", n.Address, n.Port, n.Health)
+	resp, err := http.Get(url)
+	if err != nil {
+		n.SetUnhealthy()
+		return false
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		n.SetUnhealthy()
+		return false
+	}
+
+	n.SetHealthy()
+	return true
+}
+
 // Handler forwards request to node. Based on https://stackoverflow.com/a/34725635
-func (n *Node) Handler(w http.ResponseWriter, req *http.Request) {
+func (n *Node) Handler(w http.ResponseWriter, req *http.Request) int {
 	// we need to buffer the body if we want to read it here and send it
 	// in the request.
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		log.Printf("%d %s", http.StatusInternalServerError, err.Error())
-		return
+		return http.StatusInternalServerError
 	}
 
 	// you can reassign the body if you need to parse it as multipart
@@ -64,8 +89,7 @@ func (n *Node) Handler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		log.Printf("%d %s", http.StatusBadGateway, err.Error())
-		n.SetUnhealthy()
-		return
+		return http.StatusBadGateway
 	}
 	defer resp.Body.Close()
 
@@ -73,8 +97,7 @@ func (n *Node) Handler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		log.Printf("%d %s", http.StatusBadGateway, err.Error())
-		n.SetUnhealthy()
-		return
+		return http.StatusBadGateway
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -82,5 +105,5 @@ func (n *Node) Handler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.Write(b)
-	n.SetHealthy()
+	return http.StatusOK
 }
