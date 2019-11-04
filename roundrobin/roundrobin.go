@@ -70,6 +70,7 @@ func (rr *RoundRobin) AsyncHealthChecks() {
 					healthyNodes++
 				}
 			}
+			log.Printf("%d out of %d nodes are healthy", healthyNodes, len(rr.Nodes))
 			rrHealthyNodes.Set(float64(healthyNodes))
 			time.Sleep(asyncHealthChecksTimeSeconds * time.Second)
 		}
