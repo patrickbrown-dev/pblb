@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 	"pblb/lib"
-	"pblb/roundrobin"
 	"pblb/server"
+	"pblb/twochoice"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -40,7 +40,7 @@ func run(cmd *cobra.Command, args []string) {
 		n.Init()
 	}
 
-	lb := roundrobin.New(nodes)
+	lb := twochoice.New(nodes)
 
 	server.Serve(&lb)
 }

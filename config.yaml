@@ -3,6 +3,18 @@ port: 2839
 # network: "tcp" # or "udp"
 # tls:  true
 
+# Value specifying the number of healthy nodes when the load balancer should
+# start issuing connections to all nodes (healthy or not).
+panic_threshold: 1
+
+# How many consecutive failing healthchecks should take a healthy node out of
+# the healthy node pool.
+times_until_unhealthy: 2
+
+# How many consecutive succeeding healthchecks should put an unhealthy node back
+# into the healthy node pool.
+times_until_healthy: 10
+
 nodes:
   - address: "127.0.0.1"
     port: "8001"
