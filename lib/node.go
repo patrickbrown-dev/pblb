@@ -10,10 +10,16 @@ import (
 
 // Node ...
 type Node struct {
-	Address string `mapstructure:"address"`
-	Port    string `mapstructure:"port"`
-	Health  string `mapstructure:"health"` // TODO
-	healthy bool
+	Address           string `mapstructure:"address"`
+	Port              string `mapstructure:"port"`
+	Health            string `mapstructure:"health"` // TODO
+	healthy           bool
+	ActiveConnections int
+}
+
+func (n *Node) Init() {
+	n.ActiveConnections = 0
+	n.SetHealthy()
 }
 
 // SetHealthy sets the node to "healthy", meaning it is perceived to be able
@@ -57,8 +63,18 @@ func (n *Node) CheckHealth() bool {
 	return true
 }
 
+func (n *Node) incActiveConnections() {
+	n.ActiveConnections++
+}
+
+func (n *Node) decActiveConnections() {
+	n.ActiveConnections--
+}
+
 // Handler forwards request to node. Based on https://stackoverflow.com/a/34725635
 func (n *Node) Handler(w http.ResponseWriter, req *http.Request) int {
+	n.incActiveConnections()
+	defer n.decActiveConnections()
 	// we need to buffer the body if we want to read it here and send it
 	// in the request.
 	body, err := ioutil.ReadAll(req.Body)

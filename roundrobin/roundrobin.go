@@ -44,11 +44,6 @@ type RoundRobin struct {
 
 // New creates a new RoundRobin load balancer.
 func New(nodes []*lib.Node) RoundRobin {
-	// Set all nodes to healthy.
-	// TODO perform health check.
-	for _, n := range nodes {
-		n.SetHealthy()
-	}
 	rr := RoundRobin{nodes, 0, len(nodes)}
 	rrHealthyNodes.Set(float64(rr.max))
 	rrTotalNodes.Set(float64(rr.max))
@@ -81,7 +76,8 @@ func (rr *RoundRobin) AsyncHealthChecks() {
 // selected node.
 func (rr *RoundRobin) Handler(w http.ResponseWriter, r *http.Request) {
 	node := rr.selectNode()
-	log.Printf("Handling request to %s:%s. Method: RoundRobin.\n", node.Address, node.Port)
+
+	log.Printf("Handling request to %s:%s. Active Connections: %d. Method: RoundRobin.\n", node.Address, node.Port, node.ActiveConnections)
 
 	switch status := node.Handler(w, r); {
 	case status >= 500:
@@ -109,6 +105,9 @@ func (rr *RoundRobin) selectNode() *lib.Node {
 
 	// If there's no healthy nodes, just serve round robin. Otherwise, iterate
 	// until we get a healthy node.
+	//
+	// TODO: We should set an "inversion" value in config.yaml when, if the sum
+	// of healthy nodes is equal or below this value, we just serve to all nodes.
 	for node.IsUnhealthy() && count < rr.max {
 		rr.current = (rr.current + 1) % rr.max
 		node = rr.Nodes[rr.current]

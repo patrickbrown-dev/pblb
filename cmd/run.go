@@ -36,6 +36,10 @@ func run(cmd *cobra.Command, args []string) {
 		log.Fatalf("unable to decode into struct, %v", err)
 	}
 
+	for _, n := range nodes {
+		n.Init()
+	}
+
 	lb := roundrobin.New(nodes)
 
 	server.Serve(&lb)
