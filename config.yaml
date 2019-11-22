@@ -16,12 +16,12 @@ times_until_unhealthy: 2
 times_until_healthy: 10
 
 nodes:
-  - address: "127.0.0.1"
-    port: "8001"
+  - address: "nginx_a"
+    port: "80"
     health: "/"
-  - address: "127.0.0.1"
-    port: "8002"
+  - address: "nginx_b"
+    port: "80"
     health: "/"
-  - address: "127.0.0.1"
-    port: "8003"
+  - address: "nginx_c"
+    port: "80"
     health: "/"

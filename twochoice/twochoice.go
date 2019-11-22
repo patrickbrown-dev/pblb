@@ -145,13 +145,15 @@ func (tc *TwoChoice) selectNode() *lib.Node {
 	node1 := tc.Nodes[first]
 	node2 := tc.Nodes[second]
 
-	log.Printf("TwoChoice Candidates: Node1 (ActiveConnections: %d), Node2 (ActiveConnections: %d)", node1.ActiveConnections, node2.ActiveConnections)
+	log.Printf("TwoChoice Candidates: %s:%s (ActiveConnections: %d), %s:%s (ActiveConnections: %d)", node1.Address, node1.Port, node1.ActiveConnections, node2.Address, node2.Port, node2.ActiveConnections)
 
 	if node1.ActiveConnections < node2.ActiveConnections {
 		node = node1
 	} else {
 		node = node2
 	}
+
+	log.Printf("TwoChoice chose %s:%s", node.Address, node.Port)
 
 	return node
 }
