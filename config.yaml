@@ -1,4 +1,4 @@
-method: "roundrobin" # "twochoice", "random", etc.
+method: "twochoice" # "roundrobin", "twochoice", "random", etc.
 port: 2839
 # network: "tcp" # or "udp"
 # tls:  true

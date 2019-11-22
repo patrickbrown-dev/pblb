@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"pblb/lib"
+	"pblb/roundrobin"
 	"pblb/server"
 	"pblb/twochoice"
 
@@ -40,7 +41,16 @@ func run(cmd *cobra.Command, args []string) {
 		n.Init()
 	}
 
-	lb := twochoice.New(nodes)
-
-	server.Serve(&lb)
+	switch method := viper.GetString("method"); {
+	case method == "roundrobin":
+		log.Println("Using the RoundRobin load balancing method")
+		lb := roundrobin.New(nodes)
+		server.Serve(&lb)
+	case method == "twochoice":
+		log.Println("Using the TwoChoice load balancing method")
+		lb := twochoice.New(nodes)
+		server.Serve(&lb)
+	default:
+		log.Fatalf("Could not find a matching load balancing method to configuration \"%s\"", method)
+	}
 }
