@@ -45,6 +45,10 @@ type TwoChoice struct {
 
 // New creates a new TwoChoice load balancer
 func New(nodes []*lib.Node) TwoChoice {
+	if len(nodes) < 3 {
+		log.Fatalf("At least 3 nodes are required for TwoChoice, %d found", len(nodes))
+	}
+
 	tc := TwoChoice{nodes, make(map[int]bool), make(map[int]bool)}
 	rand.Seed(time.Now().UTC().UnixNano())
 
