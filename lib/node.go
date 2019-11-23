@@ -17,6 +17,7 @@ type Node struct {
 	ActiveConnections int
 }
 
+// Init readies the node for requests.
 func (n *Node) Init() {
 	n.ActiveConnections = 0
 	n.SetHealthy()

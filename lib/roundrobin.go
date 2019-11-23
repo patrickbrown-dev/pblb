@@ -1,17 +1,12 @@
-package roundrobin
+package lib
 
 import (
 	"log"
 	"net/http"
-	"pblb/lib"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-)
-
-const (
-	asyncHealthChecksTimeSeconds = 15
 )
 
 var (
@@ -37,13 +32,13 @@ var (
 // - The current "active" node index
 // - The maximum number of Healthy nodes
 type RoundRobin struct {
-	Nodes   []*lib.Node
+	Nodes   []*Node
 	current int
 	max     int
 }
 
-// New creates a new RoundRobin load balancer.
-func New(nodes []*lib.Node) RoundRobin {
+// NewRoundRobin creates a new RoundRobin load balancer.
+func NewRoundRobin(nodes []*Node) RoundRobin {
 	rr := RoundRobin{nodes, 0, len(nodes)}
 	rrHealthyNodes.Set(float64(rr.max))
 	rrTotalNodes.Set(float64(rr.max))
@@ -99,7 +94,7 @@ func (rr *RoundRobin) Handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (rr *RoundRobin) selectNode() *lib.Node {
+func (rr *RoundRobin) selectNode() *Node {
 	node := rr.Nodes[rr.current]
 	count := 0
 
@@ -118,14 +113,14 @@ func (rr *RoundRobin) selectNode() *lib.Node {
 	return node
 }
 
-func (rr *RoundRobin) idempotentRecoverNode(n *lib.Node) {
+func (rr *RoundRobin) idempotentRecoverNode(n *Node) {
 	if n.IsUnhealthy() {
 		n.SetHealthy()
 		rrHealthyNodes.Inc()
 	}
 }
 
-func (rr *RoundRobin) idempotentDeactivateNode(n *lib.Node) {
+func (rr *RoundRobin) idempotentDeactivateNode(n *Node) {
 	if n.IsHealthy() {
 		n.SetUnhealthy()
 		rrHealthyNodes.Dec()

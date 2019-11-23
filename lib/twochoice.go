@@ -1,10 +1,9 @@
-package twochoice
+package lib
 
 import (
 	"log"
 	"math/rand"
 	"net/http"
-	"pblb/lib"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -38,13 +37,13 @@ var (
 // - A set of indexes to healthy nodes (as a map)
 // - A set of indexes to unhealthy ndoes (as a map)
 type TwoChoice struct {
-	Nodes          []*lib.Node
+	Nodes          []*Node
 	HealthyNodes   map[int]bool
 	UnhealthyNodes map[int]bool
 }
 
-// New creates a new TwoChoice load balancer
-func New(nodes []*lib.Node) TwoChoice {
+// NewTwoChoice creates a new TwoChoice load balancer
+func NewTwoChoice(nodes []*Node) TwoChoice {
 	if len(nodes) < 3 {
 		log.Fatalf("At least 3 nodes are required for TwoChoice, %d found", len(nodes))
 	}
@@ -116,7 +115,7 @@ func (tc *TwoChoice) Handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (tc *TwoChoice) selectNode() *lib.Node {
+func (tc *TwoChoice) selectNode() *Node {
 	var nodePool map[int]bool
 
 	// If we have less than 2 healthy nodes, serve to the unhealthy node pool.
@@ -141,7 +140,7 @@ func (tc *TwoChoice) selectNode() *lib.Node {
 		second = keys[rand.Intn(len(keys))]
 	}
 
-	var node *lib.Node
+	var node *Node
 	node1 := tc.Nodes[first]
 	node2 := tc.Nodes[second]
 
@@ -158,14 +157,14 @@ func (tc *TwoChoice) selectNode() *lib.Node {
 	return node
 }
 
-func (tc *TwoChoice) idempotentRecoverNode(n *lib.Node) {
+func (tc *TwoChoice) idempotentRecoverNode(n *Node) {
 	if n.IsUnhealthy() {
 		n.SetHealthy()
 		tcHealthyNodes.Inc()
 	}
 }
 
-func (tc *TwoChoice) idempotentDeactivateNode(n *lib.Node) {
+func (tc *TwoChoice) idempotentDeactivateNode(n *Node) {
 	if n.IsHealthy() {
 		n.SetUnhealthy()
 		tcHealthyNodes.Dec()
