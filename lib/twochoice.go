@@ -5,31 +5,6 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-)
-
-const (
-	asyncHealthChecksTimeSeconds = 15
-)
-
-var (
-	tcProcessed = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "pblb_twochoice_processed_total",
-			Help: "The total number of processed requests",
-		},
-		[]string{"status_class"},
-	)
-	tcHealthyNodes = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pblb_twochoice_healthy_nodes",
-		Help: "The total number of healthy nodes",
-	})
-	tcTotalNodes = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pblb_twochoice_total_nodes",
-		Help: "The total number of healthy and unhealthy nodes",
-	})
 )
 
 // TwoChoice struct contains:
@@ -56,8 +31,8 @@ func NewTwoChoice(nodes []*Node) TwoChoice {
 		tc.HealthyNodes[i] = true
 	}
 
-	tcHealthyNodes.Set(float64(len(nodes)))
-	tcTotalNodes.Set(float64(len(nodes)))
+	healthyNodesGauge.Set(float64(len(nodes)))
+	totalNodesGauge.Set(float64(len(nodes)))
 	tc.AsyncHealthChecks()
 
 	return tc
@@ -69,53 +44,52 @@ func (tc *TwoChoice) AsyncHealthChecks() {
 	go func() {
 		for {
 			log.Println("Performing async health checks")
-			healthyNodes := 0
-			for i, n := range tc.Nodes {
-				healthy := n.CheckHealth()
-				if healthy {
-					tc.HealthyNodes[i] = true
-					delete(tc.UnhealthyNodes, i)
-					healthyNodes++
-				} else {
-					tc.UnhealthyNodes[i] = true
-					delete(tc.HealthyNodes, i)
-				}
-			}
-			log.Printf("%d out of %d nodes are healthy", healthyNodes, len(tc.Nodes))
-			tcHealthyNodes.Set(float64(healthyNodes))
+			tc.healthChecks()
 			time.Sleep(asyncHealthChecksTimeSeconds * time.Second)
 		}
 	}()
 }
 
+func (tc *TwoChoice) healthChecks() {
+	for i, n := range tc.Nodes {
+		if n.CheckHealth() {
+			tc.idempotentRecoverNode(n, i)
+		} else {
+			tc.idempotentDeactivateNode(n, i)
+		}
+	}
+	log.Printf("%d out of %d nodes are healthy", len(tc.HealthyNodes), len(tc.Nodes))
+}
+
 // Handler selects a node via random two choice and passes the request to the
 // selected node. See https://www.nginx.com/blog/nginx-power-of-two-choices-load-balancing-algorithm/
 func (tc *TwoChoice) Handler(w http.ResponseWriter, r *http.Request) {
-	node := tc.selectNode()
+	nodeKey := tc.selectNodeKey()
+	node := tc.Nodes[nodeKey]
 
 	log.Printf("Handling request to %s:%s. Active Connections: %d. Method: TwoChoice.\n", node.Address, node.Port, node.ActiveConnections)
 
 	switch status := node.Handler(w, r); {
 	case status >= 500:
 		log.Printf("Node %s:%s failed to process request. Status: %d.\n", node.Address, node.Port, status)
-		tc.idempotentDeactivateNode(node)
-		tcProcessed.WithLabelValues("5xx").Inc()
+		tc.idempotentDeactivateNode(node, nodeKey)
+		processedTotal.WithLabelValues("5xx", node.Address).Inc()
 	case status >= 400:
-		tc.idempotentRecoverNode(node)
-		tcProcessed.WithLabelValues("4xx").Inc()
+		tc.idempotentRecoverNode(node, nodeKey)
+		processedTotal.WithLabelValues("4xx", node.Address).Inc()
 	case status >= 300:
-		tc.idempotentRecoverNode(node)
-		tcProcessed.WithLabelValues("3xx").Inc()
+		tc.idempotentRecoverNode(node, nodeKey)
+		processedTotal.WithLabelValues("3xx", node.Address).Inc()
 	case status >= 200:
-		tc.idempotentRecoverNode(node)
-		tcProcessed.WithLabelValues("2xx").Inc()
+		tc.idempotentRecoverNode(node, nodeKey)
+		processedTotal.WithLabelValues("2xx", node.Address).Inc()
 	default:
-		tc.idempotentRecoverNode(node)
-		tcProcessed.WithLabelValues("1xx").Inc()
+		tc.idempotentRecoverNode(node, nodeKey)
+		processedTotal.WithLabelValues("1xx", node.Address).Inc()
 	}
 }
 
-func (tc *TwoChoice) selectNode() *Node {
+func (tc *TwoChoice) selectNodeKey() int {
 	var nodePool map[int]bool
 
 	// If we have less than 2 healthy nodes, serve to the unhealthy node pool.
@@ -140,33 +114,36 @@ func (tc *TwoChoice) selectNode() *Node {
 		second = keys[rand.Intn(len(keys))]
 	}
 
-	var node *Node
-	node1 := tc.Nodes[first]
-	node2 := tc.Nodes[second]
+	log.Printf(
+		"TwoChoice Candidates: %s:%s (ActiveConnections: %d), %s:%s (ActiveConnections: %d)",
+		tc.Nodes[first].Address,
+		tc.Nodes[first].Port,
+		tc.Nodes[first].ActiveConnections,
+		tc.Nodes[second].Address,
+		tc.Nodes[second].Port,
+		tc.Nodes[second].ActiveConnections,
+	)
 
-	log.Printf("TwoChoice Candidates: %s:%s (ActiveConnections: %d), %s:%s (ActiveConnections: %d)", node1.Address, node1.Port, node1.ActiveConnections, node2.Address, node2.Port, node2.ActiveConnections)
-
-	if node1.ActiveConnections < node2.ActiveConnections {
-		node = node1
-	} else {
-		node = node2
+	if tc.Nodes[first].ActiveConnections < tc.Nodes[second].ActiveConnections {
+		return first
 	}
-
-	log.Printf("TwoChoice chose %s:%s", node.Address, node.Port)
-
-	return node
+	return second
 }
 
-func (tc *TwoChoice) idempotentRecoverNode(n *Node) {
+func (tc *TwoChoice) idempotentRecoverNode(n *Node, key int) {
 	if n.IsUnhealthy() {
+		tc.HealthyNodes[key] = true
+		delete(tc.UnhealthyNodes, key)
 		n.SetHealthy()
-		tcHealthyNodes.Inc()
+		healthyNodesGauge.Inc()
 	}
 }
 
-func (tc *TwoChoice) idempotentDeactivateNode(n *Node) {
+func (tc *TwoChoice) idempotentDeactivateNode(n *Node, key int) {
 	if n.IsHealthy() {
+		tc.UnhealthyNodes[key] = true
+		delete(tc.HealthyNodes, key)
 		n.SetUnhealthy()
-		tcHealthyNodes.Dec()
+		healthyNodesGauge.Dec()
 	}
 }

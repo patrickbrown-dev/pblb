@@ -4,27 +4,6 @@ import (
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-)
-
-var (
-	rrProcessed = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "pblb_roundrobin_processed_total",
-			Help: "The total number of processed requests",
-		},
-		[]string{"status_class"},
-	)
-	rrHealthyNodes = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pblb_roundrobin_healthy_nodes",
-		Help: "The total number of healthy nodes",
-	})
-	rrTotalNodes = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "pblb_roundrobin_total_nodes",
-		Help: "The total number of healthy and unhealthy nodes",
-	})
 )
 
 // RoundRobin struct contains:
@@ -40,8 +19,8 @@ type RoundRobin struct {
 // NewRoundRobin creates a new RoundRobin load balancer.
 func NewRoundRobin(nodes []*Node) RoundRobin {
 	rr := RoundRobin{nodes, 0, len(nodes)}
-	rrHealthyNodes.Set(float64(rr.max))
-	rrTotalNodes.Set(float64(rr.max))
+	healthyNodesGauge.Set(float64(rr.max))
+	totalNodesGauge.Set(float64(rr.max))
 	rr.AsyncHealthChecks()
 
 	return rr
@@ -55,13 +34,15 @@ func (rr *RoundRobin) AsyncHealthChecks() {
 			log.Println("Performing async health checks")
 			healthyNodes := 0
 			for _, n := range rr.Nodes {
-				healthy := n.CheckHealth()
-				if healthy {
+				if n.CheckHealth() {
+					rr.idempotentRecoverNode(n)
 					healthyNodes++
+				} else {
+					rr.idempotentDeactivateNode(n)
 				}
 			}
 			log.Printf("%d out of %d nodes are healthy", healthyNodes, len(rr.Nodes))
-			rrHealthyNodes.Set(float64(healthyNodes))
+			healthyNodesGauge.Set(float64(healthyNodes))
 			time.Sleep(asyncHealthChecksTimeSeconds * time.Second)
 		}
 	}()
@@ -78,19 +59,19 @@ func (rr *RoundRobin) Handler(w http.ResponseWriter, r *http.Request) {
 	case status >= 500:
 		log.Printf("Node %s:%s failed to process request. Status: %d.\n", node.Address, node.Port, status)
 		rr.idempotentDeactivateNode(node)
-		rrProcessed.WithLabelValues("5xx").Inc()
+		processedTotal.WithLabelValues("5xx", node.Address).Inc()
 	case status >= 400:
 		rr.idempotentRecoverNode(node)
-		rrProcessed.WithLabelValues("4xx").Inc()
+		processedTotal.WithLabelValues("4xx", node.Address).Inc()
 	case status >= 300:
 		rr.idempotentRecoverNode(node)
-		rrProcessed.WithLabelValues("3xx").Inc()
+		processedTotal.WithLabelValues("3xx", node.Address).Inc()
 	case status >= 200:
 		rr.idempotentRecoverNode(node)
-		rrProcessed.WithLabelValues("2xx").Inc()
+		processedTotal.WithLabelValues("2xx", node.Address).Inc()
 	default:
 		rr.idempotentRecoverNode(node)
-		rrProcessed.WithLabelValues("1xx").Inc()
+		processedTotal.WithLabelValues("1xx", node.Address).Inc()
 	}
 }
 
@@ -116,13 +97,13 @@ func (rr *RoundRobin) selectNode() *Node {
 func (rr *RoundRobin) idempotentRecoverNode(n *Node) {
 	if n.IsUnhealthy() {
 		n.SetHealthy()
-		rrHealthyNodes.Inc()
+		healthyNodesGauge.Inc()
 	}
 }
 
 func (rr *RoundRobin) idempotentDeactivateNode(n *Node) {
 	if n.IsHealthy() {
 		n.SetUnhealthy()
-		rrHealthyNodes.Dec()
+		healthyNodesGauge.Dec()
 	}
 }

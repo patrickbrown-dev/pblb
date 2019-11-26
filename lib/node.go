@@ -12,7 +12,7 @@ import (
 type Node struct {
 	Address           string `mapstructure:"address"`
 	Port              string `mapstructure:"port"`
-	Health            string `mapstructure:"health"` // TODO
+	HealthURL         string `mapstructure:"health"`
 	healthy           bool
 	ActiveConnections int
 }
@@ -46,21 +46,20 @@ func (n *Node) IsUnhealthy() bool {
 }
 
 // CheckHealth manually performs a health check at the node's health url. It
-// returns true if healthy, false if unhealhty.
+// returns true if healthy, false if unhealthy. Note: This does not set the
+// node's `healthy:bool` field, as that's the purview of the orchestrating
+// load-balancer.
 func (n *Node) CheckHealth() bool {
-	url := fmt.Sprintf("http://%s:%s%s", n.Address, n.Port, n.Health)
+	url := fmt.Sprintf("http://%s:%s%s", n.Address, n.Port, n.HealthURL)
 	resp, err := http.Get(url)
 	if err != nil {
-		n.SetUnhealthy()
 		return false
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		n.SetUnhealthy()
 		return false
 	}
 
-	n.SetHealthy()
 	return true
 }
 
