@@ -3,6 +3,7 @@ package lib
 import (
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -14,16 +15,17 @@ type RoundRobin struct {
 	Nodes   []*Node
 	current int
 	max     int
+	mux     sync.Mutex
 }
 
 // NewRoundRobin creates a new RoundRobin load balancer.
-func NewRoundRobin(nodes []*Node) RoundRobin {
-	rr := RoundRobin{nodes, 0, len(nodes)}
+func NewRoundRobin(nodes []*Node) *RoundRobin {
+	rr := RoundRobin{Nodes: nodes, current: 0, max: len(nodes)}
 	healthyNodesGauge.Set(float64(rr.max))
 	totalNodesGauge.Set(float64(rr.max))
 	rr.AsyncHealthChecks()
 
-	return rr
+	return &rr
 }
 
 // AsyncHealthChecks performs health checks in the background at an interval
@@ -76,6 +78,8 @@ func (rr *RoundRobin) Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (rr *RoundRobin) selectNode() *Node {
+	rr.mux.Lock()
+	defer rr.mux.Unlock()
 	node := rr.Nodes[rr.current]
 	count := 0
 

@@ -19,6 +19,7 @@ var runCmd = &cobra.Command{
 
 func init() {
 	viper.SetDefault("port", "2839")
+	viper.SetDefault("metrics_port", "2840")
 
 	viper.SetConfigName("config")
 	viper.AddConfigPath("/etc/pblb/")
@@ -43,12 +44,10 @@ func run(cmd *cobra.Command, args []string) {
 	switch method := viper.GetString("method"); {
 	case method == "roundrobin":
 		log.Println("Using the RoundRobin load balancing method")
-		lb := lib.NewRoundRobin(nodes)
-		serve(&lb)
+		serve(lib.NewRoundRobin(nodes))
 	case method == "twochoice":
 		log.Println("Using the TwoChoice load balancing method")
-		lb := lib.NewTwoChoice(nodes)
-		serve(&lb)
+		serve(lib.NewTwoChoice(nodes))
 	default:
 		log.Fatalf("Could not find a matching load balancing method to configuration \"%s\"", method)
 	}
@@ -58,7 +57,12 @@ func serve(lb lib.LoadBalancer) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		lb.Handler(w, r)
 	})
-	http.Handle("/metrics", promhttp.Handler())
+
+	go func() {
+		metricsPort := fmt.Sprintf(":%s", viper.GetString("metrics_port"))
+		log.Printf("Starting metrics server on port %s\n", metricsPort)
+		log.Fatal(http.ListenAndServe(metricsPort, promhttp.Handler()))
+	}()
 
 	port := fmt.Sprintf(":%s", viper.GetString("port"))
 	log.Printf("Starting pblb server on port %s\n", port)

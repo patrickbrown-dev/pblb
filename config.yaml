@@ -1,5 +1,6 @@
 method: "twochoice" # "roundrobin", "twochoice", "random", etc.
 port: 2839
+metrics_port: 2840
 # network: "tcp" # or "udp"
 # tls:  true
 

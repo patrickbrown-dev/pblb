@@ -4,6 +4,13 @@ services:
     build: .
     ports:
       - 2839:2839
+      - 2840:2840
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
   nginx_a:
     image: nginx:latest
     container_name: nginx_a

@@ -18,7 +18,7 @@ type TwoChoice struct {
 }
 
 // NewTwoChoice creates a new TwoChoice load balancer
-func NewTwoChoice(nodes []*Node) TwoChoice {
+func NewTwoChoice(nodes []*Node) *TwoChoice {
 	if len(nodes) < 3 {
 		log.Fatalf("At least 3 nodes are required for TwoChoice, %d found", len(nodes))
 	}
@@ -35,7 +35,7 @@ func NewTwoChoice(nodes []*Node) TwoChoice {
 	totalNodesGauge.Set(float64(len(nodes)))
 	tc.AsyncHealthChecks()
 
-	return tc
+	return &tc
 }
 
 // AsyncHealthChecks performs health checks in the background at an interval

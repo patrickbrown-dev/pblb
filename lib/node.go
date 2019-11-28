@@ -6,6 +6,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 // Node ...
@@ -15,7 +19,18 @@ type Node struct {
 	HealthURL         string `mapstructure:"health"`
 	healthy           bool
 	ActiveConnections int
+	mux               sync.Mutex
 }
+
+var (
+	nodeActiveConnections = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "pblb_node_active_connections",
+			Help: "The total number of node active connections",
+		},
+		[]string{"node"},
+	)
+)
 
 // Init readies the node for requests.
 func (n *Node) Init() {
@@ -55,6 +70,7 @@ func (n *Node) CheckHealth() bool {
 	if err != nil {
 		return false
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return false
@@ -64,11 +80,17 @@ func (n *Node) CheckHealth() bool {
 }
 
 func (n *Node) incActiveConnections() {
+	n.mux.Lock()
 	n.ActiveConnections++
+	nodeActiveConnections.WithLabelValues(n.Address).Set(float64(n.ActiveConnections))
+	n.mux.Unlock()
 }
 
 func (n *Node) decActiveConnections() {
+	n.mux.Lock()
 	n.ActiveConnections--
+	nodeActiveConnections.WithLabelValues(n.Address).Set(float64(n.ActiveConnections))
+	n.mux.Unlock()
 }
 
 // Handler forwards request to node. Based on https://stackoverflow.com/a/34725635
@@ -121,5 +143,5 @@ func (n *Node) Handler(w http.ResponseWriter, req *http.Request) int {
 	}
 
 	w.Write(b)
-	return http.StatusOK
+	return resp.StatusCode
 }
