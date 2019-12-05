@@ -54,16 +54,17 @@ func run(cmd *cobra.Command, args []string) {
 }
 
 func serve(lb lib.LoadBalancer) {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		lb.Handler(w, r)
-	})
-
+	// Run metrics server in a goroutine
 	go func() {
 		metricsPort := fmt.Sprintf(":%s", viper.GetString("metrics_port"))
 		log.Printf("Starting metrics server on port %s\n", metricsPort)
 		log.Fatal(http.ListenAndServe(metricsPort, promhttp.Handler()))
 	}()
 
+	// Handle all requests with the load balancer
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		lb.Handler(w, r)
+	})
 	port := fmt.Sprintf(":%s", viper.GetString("port"))
 	log.Printf("Starting pblb server on port %s\n", port)
 	log.Fatal(http.ListenAndServe(port, nil))
