@@ -1,4 +1,4 @@
-# `pblb`
+# pblb
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/p16n/pblb.svg)](https://pkg.go.dev/github.com/p16n/pblb)
 
