@@ -1,7 +1,7 @@
 package main
 
 import (
-	"pblb/cmd"
+	"github.com/p16n/pblb/cmd"
 )
 
 func main() {

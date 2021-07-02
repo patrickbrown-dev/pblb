@@ -1,4 +1,4 @@
-module pblb
+module github.com/p16n/pblb
 
 go 1.15
 
