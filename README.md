@@ -1,6 +1,6 @@
 # pblb
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/p16n/pblb.svg)](https://pkg.go.dev/github.com/p16n/pblb)
+[![Go Reference](https://pkg.go.dev/badge/github.com/pdb64/pblb.svg)](https://pkg.go.dev/github.com/pdb64/pblb)
 
 `pblb` is an experimental load-balancer written in Go. It can't do many things
 a production load-balancer can do and—for that reason—should not be used in a

@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/p16n/pblb/lib"
+	"github.com/pdb64/pblb/lib"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
