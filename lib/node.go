@@ -71,12 +71,7 @@ func (n *Node) CheckHealth() bool {
 		return false
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return false
-	}
-
-	return true
+	return resp.StatusCode == http.StatusOK
 }
 
 func (n *Node) incActiveConnections() {
@@ -112,7 +107,7 @@ func (n *Node) Handler(w http.ResponseWriter, req *http.Request) int {
 	// create a new url from the raw RequestURI sent by the client
 	url := fmt.Sprintf("http://%s:%s/%s", n.Address, n.Port, req.RequestURI)
 
-	proxyReq, err := http.NewRequest(req.Method, url, bytes.NewReader(body))
+	proxyReq, _ := http.NewRequest(req.Method, url, bytes.NewReader(body))
 
 	// We may want to filter some headers, otherwise we could just use a shallow
 	// copy proxyReq.Header = req.Header
